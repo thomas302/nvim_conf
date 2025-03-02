@@ -78,7 +78,6 @@ local cmp = require'cmp'
   require'lspconfig'.julials.setup{}
   require'lspconfig'.koto.setup{}
   require'lspconfig'.rust_analyzer.setup{}
-  require'lspconfig'.ccls.setup{}
 
 
 vim.cmd([[
@@ -96,10 +95,10 @@ vim.api.nvim_create_autocmd("FileType", {
   end
 })
 
-require('platformio').setup({
-    lsp = "ccls" --default: ccls, other option: clangd
+-- require('platformio').setup({
+-- lsp = "ccls" --default: ccls, other option: clangd
                  -- If you pick clangd, it also creates compile_commands.json
-})
+--})
 
 require('telescope').setup{
   defaults = {
