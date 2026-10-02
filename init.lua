@@ -4,8 +4,6 @@ require("mason").setup()
 
 require("mason-lspconfig").setup()
 
-require('java').setup()
-
 vim.g.python3_host_prog = os.getenv("PYTHON_PATH")
 
 vim.opt.relativenumber = true
@@ -73,11 +71,17 @@ local cmp = require'cmp'
   -- Set up lspconfig.
   local capabilities = require('cmp_nvim_lsp').default_capabilities()
   -- Replace <YOUR_LSP_SERVER> with each lsp server you've enabled.
-  require'lspconfig'.jedi_language_server.setup{}
+  -- require'lspconfig'.jedi_language_server.setup{}
+  require('lspconfig').basedpyright.setup({})
+
+  require('java').setup()
   require'lspconfig'.jdtls.setup({})
+
   require'lspconfig'.julials.setup{}
   require'lspconfig'.koto.setup{}
   require'lspconfig'.rust_analyzer.setup{}
+
+
 
 
 vim.cmd([[
@@ -137,7 +141,118 @@ vim.keymap.set('n', '<leader>ff', builtin.find_files, { desc = 'Telescope find f
 vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = 'Telescope live grep' })
 vim.keymap.set('n', '<leader>fb', builtin.buffers, { desc = 'Telescope buffers' })
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, { desc = 'Telescope help tags' })
+vim.keymap.set('n', '<leader>cs', builtin.colorscheme, { desc = 'Telescope Available colorshemes' })
 
 vim.keymap.set('n', '<leader>fr', function() builtin.lsp_references() end, { noremap = true, silent = true })
-
 vim.keymap.set('n', '<leader>fd', function() builtin.lsp_definitions() end, { noremap = true, silent = true })
+
+-- Run the current unsaved buffer directly through Python
+vim.keymap.set('n', '<leader>rp', ':w !python<CR>', { desc = 'Run unsaved buffer with Python' })
+
+vim.keymap.set('n', '<leader>rpo', function()
+  -- 1. Grab all lines from the current active buffer
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  
+  -- 2. Pass the lines directly to Python via system standard input
+  local output = vim.fn.system('python', lines)
+  
+  -- 3. Open a new horizontal split window
+  vim.cmd('new')
+  
+  -- 4. Mark the new buffer as a temporary scratchpad
+  local new_buf = vim.api.nvim_get_current_buf()
+  vim.api.nvim_set_option_value('buftype', 'nofile', { buf = new_buf })
+  vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = new_buf })
+  vim.api.nvim_set_option_value('swapfile', false, { buf = new_buf })
+  
+  -- 5. Split the output string into individual lines and write them
+  local output_lines = vim.split(output, '\n')
+  vim.api.nvim_buf_set_lines(new_buf, 0, -1, false, output_lines)
+  end, { desc = 'Run buffer in Python and pipe output to new split' }
+)
+
+
+vim.opt.linebreak = true
+
+local function goyo_enter()
+  vim.keymap.set("n", "j", "gj", { buffer = 0 })
+  vim.keymap.set("n", "k", "gk", { buffer = 0 })
+end
+
+-- Function when leaving Goyo
+local function goyo_leave()
+  vim.keymap.del("n", "j", { buffer = 0 })
+  vim.keymap.del("n", "k", { buffer = 0 })
+end
+
+-- Autocommands for Goyo events
+vim.api.nvim_create_autocmd("User", {
+  pattern = "GoyoEnter",
+  callback = goyo_enter,
+})
+
+vim.api.nvim_create_autocmd("User", {
+  pattern = "GoyoLeave",
+  callback = goyo_leave,
+})
+
+-- ==========================================================================
+-- GOOGLE DOCS-STYLE WORD COUNTER CONFIGURATION
+-- ==========================================================================
+
+-- Namespace block to avoid any early startup collisions
+_G.GDocs = {
+  enabled = false,
+  
+  count = function()
+    local lines = {}
+    local mode = vim.api.nvim_get_mode().mode
+
+    if mode:match("[vV]") then
+      local _, s_line, _, _ = unpack(vim.fn.getpos("v"))
+      local _, e_line, _, _ = unpack(vim.fn.getpos("."))
+      if s_line > e_line then s_line, e_line = e_line, s_line end
+      lines = vim.api.nvim_buf_get_lines(0, s_line - 1, e_line, false)
+    else
+      lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    end
+
+    local word_count = 0
+    for _, line in ipairs(lines) do
+      local normalized_line = line:gsub("([%.,])", " ")
+      for _ in string.gmatch(normalized_line, "[^%s]+") do
+        word_count = word_count + 1
+      end
+    end
+
+    return "📝 " .. word_count .. " words"
+  end
+}
+
+-- Create the user toggle command
+vim.api.nvim_create_user_command("WCToggle", function()
+  _G.GDocs.enabled = not _G.GDocs.enabled
+  -- Safe call execution protects the statusline redraw pipeline
+  pcall(function() require("lualine").refresh() end)
+  print("Google Docs Word Count: " .. (_G.GDocs.enabled and "ON" or "OFF"))
+end, {})
+
+
+-- Create an autocommand group for Goyo integration
+-- local goyo_group = vim.api.nvim_create_augroup("GoyoLualine", { clear = true })
+-- 
+-- vim.api.nvim_create_autocmd("User", {
+--   pattern = "GoyoEnter",
+--   group = goyo_group,
+--   callback = function()
+--     require("lualine").hide({ place = { "statusline", "tabline", "winbar" }, unhide = false })
+--   end,
+-- })
+-- 
+-- vim.api.nvim_create_autocmd("User", {
+--   pattern = "GoyoLeave",
+--   group = goyo_group,
+--   callback = function()
+--     require("lualine").hide({ place = { "statusline", "tabline", "winbar" }, unhide = true })
+--   end,
+-- })

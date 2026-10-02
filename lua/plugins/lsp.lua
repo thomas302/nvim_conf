@@ -11,5 +11,5 @@ return {
     'L3MON4D3/LuaSnip',
     'saadparwaiz1/cmp_luasnip', 
     'simrat39/rust-tools.nvim',
-    'numirias/semshi'
+    -- 'numirias/semshi'
 }
